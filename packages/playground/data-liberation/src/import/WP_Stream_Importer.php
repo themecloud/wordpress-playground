@@ -1,8 +1,5 @@
 <?php
 
-use WordPress\AsyncHTTP\Client;
-use WordPress\AsyncHTTP\Request;
-
 /**
  * Idea:
  * * Stream-process the WXR file.
@@ -241,6 +238,7 @@ class WP_Stream_Importer {
 		$this->indexed_assets_urls = array();
 
 		if ( ! $this->entity_iterator->valid() ) {
+			$this->entity_iterator = null;
 			return false;
 		}
 
@@ -310,6 +308,14 @@ class WP_Stream_Importer {
 		return $this->indexed_assets_urls;
 	}
 
+	private $frontloading_events = array();
+	public function get_frontloading_events() {
+		return $this->frontloading_events;
+	}
+	public function get_frontloading_progress() {
+		return $this->downloader->get_progress();
+	}
+
 	/**
 	 * Advance the cursor to the oldest finished download. For example:
 	 *
@@ -329,6 +335,7 @@ class WP_Stream_Importer {
 			switch ( $event->type ) {
 				case WP_Attachment_Downloader_Event::SUCCESS:
 				case WP_Attachment_Downloader_Event::FAILURE:
+					$this->frontloading_events[] = $event;
 					foreach ( array_keys( $this->active_downloads ) as $entity_cursor ) {
 						unset( $this->active_downloads[ $entity_cursor ][ $event->resource_id ] );
 					}
@@ -358,9 +365,11 @@ class WP_Stream_Importer {
 	private function frontload_next_entity() {
 		if ( null === $this->entity_iterator ) {
 			$this->entity_iterator = $this->create_entity_iterator();
-			$this->downloader      = new WP_Attachment_Downloader( $this->options );
+			$this->downloader      = new WP_Attachment_Downloader( $this->options['uploads_path'] );
 		}
 
+		// Clear the frontloading events from the previous pass.
+		$this->frontloading_events = array();
 		$this->frontloading_advance_reentrancy_cursor();
 
 		// Poll the bytes between scheduling new downloads.
@@ -394,6 +403,7 @@ class WP_Stream_Importer {
 			$this->active_downloads = array();
 			$this->entity_iterator  = null;
 			$this->resume_at_entity = null;
+			$this->frontloading_events = array();
 			return false;
 		}
 
@@ -527,7 +537,7 @@ class WP_Stream_Importer {
 
 		$enqueued = $this->downloader->enqueue_if_not_exists( $url, $output_path );
 		if ( $enqueued ) {
-			$resource_id   = $this->downloader->get_last_enqueued_resource_id();
+			$resource_id   = $this->downloader->get_enqueued_resource_id();
 			$entity_cursor = $this->entity_iterator->get_reentrancy_cursor();
 			$this->active_downloads[ $entity_cursor ][ $resource_id ] = true;
 		}
@@ -612,8 +622,18 @@ class WP_Stream_Importer {
 		);
 	}
 
+	private $first_iterator = true;
 	private function create_entity_iterator() {
 		$factory = $this->entity_iterator_factory;
-		return $factory( $this->resume_at_entity );
+		if ( $this->first_iterator ) {
+			var_dump('first iterator');
+			$this->first_iterator = false;
+			// Only resume from the last entity the first time we create an iterator.
+			// The next stage will start from the very first entity.
+			// @TODO: Use something explicit, such as "suspended stage" instead of an
+			//        implicit "first iterator" logic.
+			return $factory( $this->resume_at_entity );
+		}
+		return $factory();
 	}
 }

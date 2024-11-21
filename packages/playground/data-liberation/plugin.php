@@ -37,17 +37,24 @@ add_action('init', function() {
     );
 
     echo '<plaintext>';
+    $i = 0;
     do {
         while($importer->next_step()) {
             switch($importer->get_stage()) {
                 case WP_Stream_Importer::STAGE_INDEX_ENTITIES:
-                    var_dump($importer->get_indexed_entities_counts());
-                    var_dump($importer->get_indexed_assets_urls());
+                    print_r($importer->get_indexed_entities_counts());
+                    print_r($importer->get_indexed_assets_urls());
+                    break;
+                case WP_Stream_Importer::STAGE_FRONTLOAD_ASSETS:
+                    if($importer->get_frontloading_progress() || $importer->get_frontloading_events()) {
+                        var_dump($importer->get_frontloading_progress());
+                        print_r($importer->get_frontloading_events());
+                    }
                     break;
             }
         }
 
-        if($importer->get_stage() === WP_Stream_Importer::STAGE_INDEX_ENTITIES) {
+        if($importer->get_stage() === WP_Stream_Importer::STAGE_FRONTLOAD_ASSETS) {
             break;
         }
     } while ( $importer->advance_to_next_stage() );
