@@ -396,11 +396,10 @@ class WP_WXR_Reader implements Iterator {
 		 *        If the cursor internal data was a part of every bookmark, this would have worked
 		 *        even after evicting the actual bytes where $last_entity is stored.
 		 */
-		$xml_cursor                                     = $this->xml->get_reentrancy_cursor();
-		$xml_cursor                                     = json_decode( base64_decode( $xml_cursor ), true );
-		$xml_cursor['token_starts_at_in_current_chunk'] = 0;
-		$xml_cursor['upstream_bytes_forgotten']         = $this->entity_byte_offset;
-		$xml_cursor                                     = base64_encode( json_encode( $xml_cursor ) );
+		$xml_cursor                             = $this->xml->get_reentrancy_cursor();
+		$xml_cursor                             = json_decode( base64_decode( $xml_cursor ), true );
+		$xml_cursor['upstream_bytes_forgotten'] = $this->entity_byte_offset;
+		$xml_cursor                             = base64_encode( json_encode( $xml_cursor ) );
 		return json_encode(
 			array(
 				'xml' => $xml_cursor,

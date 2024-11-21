@@ -684,7 +684,6 @@ class WP_XML_Processor {
 		return base64_encode(
 			json_encode(
 				array(
-					'token_starts_at_in_current_chunk' => $this->token_starts_at,
 					'upstream_bytes_forgotten' => $this->upstream_bytes_forgotten,
 					'parser_context' => $this->parser_context,
 					'stack_of_open_elements' => $this->stack_of_open_elements,
@@ -720,11 +719,12 @@ class WP_XML_Processor {
 			return false;
 		}
 		$cursor = json_decode( $cursor, true );
-		if ( false === $cursor || ! isset( $cursor['token_starts_at_in_current_chunk'], $cursor['upstream_bytes_forgotten'], $cursor['stack_of_open_elements'], $cursor['parser_context'], $cursor['expecting_more_input'] ) ) {
+		if ( false === $cursor ) {
 			_doing_it_wrong( __METHOD__, 'Invalid cursor provided to initialize_from_cursor().', '1.0.0' );
 			return false;
 		}
-		$this->bytes_already_parsed     = $cursor['token_starts_at_in_current_chunk'];
+		// Assume the input stream will start from the last known byte offset.
+		$this->bytes_already_parsed     = 0;
 		$this->upstream_bytes_forgotten = $cursor['upstream_bytes_forgotten'];
 		$this->stack_of_open_elements   = $cursor['stack_of_open_elements'];
 		$this->parser_context           = $cursor['parser_context'];
