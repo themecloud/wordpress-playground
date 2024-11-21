@@ -30,11 +30,40 @@ add_filter('wp_kses_uri_attributes', function() {
  * @TODO: Remove this in favor of a CLI command.
  */
 add_action('init', function() {
-    return;
-    $wxr_path = __DIR__ . '/tests/fixtures/wxr-simple.xml';
+    // $wxr_path = __DIR__ . '/tests/fixtures/wxr-simple.xml';
+    $wxr_path = __DIR__ . '/tests/wxr/a11y-unit-test-data.xml';
     $importer = WP_Stream_Importer::create_for_wxr_file(
         $wxr_path
     );
+
+    echo '<plaintext>';
+    do {
+        while($importer->next_step()) {
+            switch($importer->get_stage()) {
+                case WP_Stream_Importer::STAGE_INDEX_ENTITIES:
+                    var_dump($importer->get_indexed_entities_counts());
+                    var_dump($importer->get_indexed_assets_urls());
+                    break;
+            }
+        }
+
+        if($importer->get_stage() === WP_Stream_Importer::STAGE_INDEX_ENTITIES) {
+            break;
+        }
+    } while ( $importer->advance_to_next_stage() );
+
+    die("Done");
+    var_dump($importer->get_stage());
+    var_dump($importer->get_next_stage());
+    
+    $importer->next_step();
+    switch($importer->get_stage()) {
+        case WP_Stream_Importer::STAGE_INDEX_ENTITIES:
+            var_dump($importer->get_entities_counts());
+            var_dump($importer->get_found_assets_urls());
+            break;
+    }
+    die();
     while($importer->next_step()) {
         // ...
     }

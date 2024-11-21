@@ -112,10 +112,11 @@ class WP_Attachment_Downloader {
 						if ( file_exists( $this->output_paths[ $original_request_id ] . '.partial' ) ) {
 							unlink( $this->output_paths[ $original_request_id ] . '.partial' );
 						}
-						$this->fps[ $original_request_id ] = fopen( $this->output_paths[ $original_request_id ] . '.partial', 'wb' );
-						if ( false === $this->fps[ $original_request_id ] ) {
-							// @TODO: Log an error.
+						$fp = fopen( $this->output_paths[ $original_request_id ] . '.partial', 'wb' );
+						if ( false === $fp ) {
+							continue 2;
 						}
+						$this->fps[ $original_request_id ] = $fp;
 					}
 					break;
 				case Client::EVENT_BODY_CHUNK_AVAILABLE:
