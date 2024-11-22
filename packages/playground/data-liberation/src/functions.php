@@ -198,8 +198,13 @@ function wp_visit_file_tree( $dir ) {
  * @param string $path The path to the WXR file.
  * @return void
  */
-function data_liberation_import( $path ) {
-	$importer  = WP_Stream_Importer::create_for_wxr_file( $path );
+function data_liberation_import( $path ): bool {
+	$importer = WP_Stream_Importer::create_for_wxr_file( $path );
+
+	if ( ! $importer ) {
+		return false;
+	}
+
 	$is_wp_cli = defined( 'WP_CLI' ) && WP_CLI;
 
 	if ( $is_wp_cli ) {
@@ -217,4 +222,6 @@ function data_liberation_import( $path ) {
 	if ( $is_wp_cli ) {
 		WP_CLI::success( 'Import ended' );
 	}
+
+	return true;
 }
