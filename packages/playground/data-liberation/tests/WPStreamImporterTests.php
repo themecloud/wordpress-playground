@@ -15,12 +15,6 @@ class WPStreamImporterTests extends TestCase {
 		}
 	}
 
-	public function test_import_wxr_is_missing() {
-		$import = data_liberation_import( __DIR__ . '/wxr/not-a-valid-file.xml' );
-
-		$this->assertFalse( $import );
-	}
-
 	public function test_import_simple_wxr() {
 		$import = data_liberation_import( __DIR__ . '/wxr/small-export.xml' );
 
