@@ -409,7 +409,7 @@ class WP_Stream_Importer {
 
 		$enqueued = $this->downloader->enqueue_if_not_exists( $url, $output_path );
 		if ( $enqueued ) {
-			$resource_id   = $this->downloader->get_last_enqueued_resource_id();
+			$resource_id   = $this->downloader->get_enqueued_resource_id();
 			$entity_cursor = $this->entity_iterator->get_reentrancy_cursor();
 			$this->active_downloads[ $entity_cursor ][ $resource_id ] = true;
 		}
