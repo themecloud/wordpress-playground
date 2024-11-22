@@ -186,6 +186,15 @@ class WP_Stream_Importer {
 	}
 
 	/**
+	 * Get the current stage.
+	 *
+	 * @return string
+	 */
+	public function get_current_stage() {
+		return $this->stage;
+	}
+
+	/**
 	 * Advance the cursor to the oldest finished download. For example:
 	 *
 	 * * We've started downloading files A, B, C, and D in this order.

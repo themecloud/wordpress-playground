@@ -193,21 +193,28 @@ function wp_visit_file_tree( $dir ) {
 }
 
 /**
- * Import a WXR file. Used in the CLI.
+ * Import a WXR file. Used by the CLI.
  *
- * @param string $file The path to the WXR file.
+ * @param string $path The path to the WXR file.
  * @return void
  */
-function data_liberation_import( $file ) {
-	$entity_iterator_factory = function () use ( $file ) {
-		$wxr = new WP_WXR_Reader();
-		$wxr->connect_upstream( new WP_File_Reader( $file ) );
+function data_liberation_import( $path ) {
+	$importer  = WP_Stream_Importer::create_for_wxr_file( $path );
+	$is_wp_cli = defined( 'WP_CLI' ) && WP_CLI;
 
-		return $wxr;
-	};
+	if ( $is_wp_cli ) {
+		WP_CLI::line( "Importing from {$path}" );
+	}
 
-	$importer = WP_Stream_Importer::create( $entity_iterator_factory );
+	while ( $importer->next_step() ) {
+		// Output the current stage if running in WP-CLI.
+		if ( $is_wp_cli ) {
+			$current_stage = $importer->get_current_stage();
+			WP_CLI::line( "Import: stage {$current_stage}" );
+		}
+	}
 
-	$importer->frontload_assets();
-	$importer->import_entities();
+	if ( $is_wp_cli ) {
+		WP_CLI::success( 'Import ended' );
+	}
 }
