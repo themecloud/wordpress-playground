@@ -536,12 +536,14 @@ class WP_Stream_Importer {
 		$output_path    = $this->options['uploads_path'] . '/' . ltrim( $asset_filename, '/' );
 
 		$enqueued = $this->downloader->enqueue_if_not_exists( $url, $output_path );
-		if ( $enqueued ) {
-			$resource_id   = $this->downloader->get_enqueued_resource_id();
-			$entity_cursor = $this->entity_iterator->get_reentrancy_cursor();
-			$this->active_downloads[ $entity_cursor ][ $resource_id ] = true;
+		if ( false === $enqueued ) {
+			_doing_it_wrong( __METHOD__, sprintf( 'Failed to enqueue attachment download: %s', $url ), '1.0' );
+			return false;
 		}
-		return $enqueued;
+
+		$entity_cursor = $this->entity_iterator->get_reentrancy_cursor();
+		$this->active_downloads[ $entity_cursor ][ $raw_url ] = true;
+		return true;
 	}
 
 	/**
@@ -626,7 +628,6 @@ class WP_Stream_Importer {
 	private function create_entity_iterator() {
 		$factory = $this->entity_iterator_factory;
 		if ( $this->first_iterator ) {
-			var_dump('first iterator');
 			$this->first_iterator = false;
 			// Only resume from the last entity the first time we create an iterator.
 			// The next stage will start from the very first entity.

@@ -11,8 +11,7 @@ class WP_Attachment_Downloader {
 
 	private $current_event;
 	private $pending_events   = array();
-	private $downloads_so_far = 0;
-	private $enqueued_resource_id;
+	private $enqueued_url;
 	private $progress = array();
 
 	public function __construct( $output_root ) {
@@ -24,17 +23,28 @@ class WP_Attachment_Downloader {
 		return $this->progress;
 	}
 
+	/**
+	 * Whether any downloads are still in progress.
+	 *
+	 * Note that zero active requests does not mean all work is done.
+	 * Even if all the response bytes are received, we still need to process
+	 * them and emit the final success/failure events.
+	 *
+	 * @return bool
+	 */
 	public function has_pending_requests() {
-		return count( $this->client->get_active_requests() ) > 0;
+		return count( $this->client->get_active_requests() ) > 0 || count( $this->pending_events ) > 0 || count( $this->progress ) > 0;
 	}
 
 	public function enqueue_if_not_exists( $url, $output_path ) {
-		$this->enqueued_resource_id = null;
+		$this->enqueued_url = $url;
 
 		$output_path = $this->output_root . '/' . ltrim( $output_path, '/' );
 		if ( file_exists( $output_path ) ) {
-			// @TODO: Reconsider the return value. The enqueuing operation failed,
-			//        but overall already having a file seems like a success.
+			$this->pending_events[] = new WP_Attachment_Downloader_Event(
+				$this->enqueued_url,
+				WP_Attachment_Downloader_Event::SUCCESS
+			);
 			return true;
 		}
 
@@ -49,7 +59,6 @@ class WP_Attachment_Downloader {
 			return false;
 		}
 
-		++$this->downloads_so_far;
 		switch ( $protocol ) {
 			case 'file':
 				$local_path = parse_url( $url, PHP_URL_PATH );
@@ -60,27 +69,28 @@ class WP_Attachment_Downloader {
 				// Just copy the file over.
 				// @TODO: think through the chmod of the created file.
 
-				$this->enqueued_resource_id = 'file:' . $this->downloads_so_far;
 				$success                    = copy( $local_path, $output_path );
 				$this->pending_events[]     = new WP_Attachment_Downloader_Event(
-					$this->enqueued_resource_id,
+					$this->enqueued_url,
 					$success ? WP_Attachment_Downloader_Event::SUCCESS : WP_Attachment_Downloader_Event::FAILURE
 				);
 				return true;
 			case 'http':
 			case 'https':
 				$request                            = new Request( $url );
-				$this->enqueued_resource_id         = 'http:' . $request->id;
 				$this->output_paths[ $request->id ] = $output_path;
 				$this->client->enqueue( $request );
-				$this->progress[ $this->enqueued_resource_id ] = null;
+				$this->progress[ $request->url ] = [
+					'received' => null,
+					'total' => null,
+				];
 				return true;
 		}
 		return false;
 	}
 
-	public function get_enqueued_resource_id() {
-		return $this->enqueued_resource_id;
+	public function get_enqueued_url() {
+		return $this->enqueued_url;
 	}
 
 	public function queue_full() {
@@ -109,9 +119,9 @@ class WP_Attachment_Downloader {
 		$request = $this->client->get_request();
 		// The request object we get from the client may be a redirect.
 		// Let's keep referring to the original request.
+		$original_url = $request->original_request()->url;
 		$original_request_id = $request->original_request()->id;
 
-		$resource_id = 'http:' . $original_request_id;
 		switch ( $event ) {
 			case Client::EVENT_GOT_HEADERS:
 				if ( ! $request->is_redirected() ) {
@@ -121,16 +131,20 @@ class WP_Attachment_Downloader {
 					$fp = fopen( $this->output_paths[ $original_request_id ] . '.partial', 'wb' );
 					if ( false !== $fp ) {
 						$this->fps[ $original_request_id ] = $fp;
-						$this->progress[ $resource_id ] = 0;
+						$this->progress[ $original_url ]['received'] = 0;
+						if($request->response->get_header('Content-Length')) {
+							$this->progress[ $original_url ]['total'] = $request->response->get_header('Content-Length');
+						}
 					}
 				}
 				break;
 			case Client::EVENT_BODY_CHUNK_AVAILABLE:
 				$chunk = $this->client->get_response_body_chunk();
 				if ( false === fwrite( $this->fps[ $original_request_id ], $chunk ) ) {
-					// @TODO: Log an error.
+					// @TODO: Don't echo the error message. Attach it to the import session instead for the user to review later on.
+					_doing_it_wrong( __METHOD__, sprintf( 'Failed to write to file: %s', $this->output_paths[ $original_request_id ] ), '1.0' );
 				}
-				$this->progress[ $resource_id ] += strlen( $chunk );
+				$this->progress[ $original_url ]['received'] += strlen( $chunk );
 				break;
 			case Client::EVENT_FAILED:
 				if ( isset( $this->fps[ $original_request_id ] ) ) {
@@ -143,10 +157,10 @@ class WP_Attachment_Downloader {
 					}
 				}
 				$this->pending_events[] = new WP_Attachment_Downloader_Event(
-					$resource_id,
+					$original_url,
 					WP_Attachment_Downloader_Event::FAILURE
 				);
-				unset( $this->progress[ $resource_id ] );
+				unset( $this->progress[ $original_url ] );
 				unset( $this->output_paths[ $original_request_id ] );
 				break;
 			case Client::EVENT_FINISHED:
@@ -164,10 +178,10 @@ class WP_Attachment_Downloader {
 						}
 					}
 					$this->pending_events[] = new WP_Attachment_Downloader_Event(
-						$resource_id,
+						$original_url,
 						WP_Attachment_Downloader_Event::SUCCESS
 					);
-					unset( $this->progress[ $resource_id ] );
+					unset( $this->progress[ $original_url ] );
 					unset( $this->output_paths[ $original_request_id ] );
 				}
 				break;

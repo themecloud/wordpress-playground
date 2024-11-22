@@ -46,9 +46,11 @@ add_action('init', function() {
                     print_r($importer->get_indexed_assets_urls());
                     break;
                 case WP_Stream_Importer::STAGE_FRONTLOAD_ASSETS:
-                    if($importer->get_frontloading_progress() || $importer->get_frontloading_events()) {
+                    if($importer->get_frontloading_progress()) {
                         var_dump($importer->get_frontloading_progress());
-                        print_r($importer->get_frontloading_events());
+                    }
+                    if($importer->get_frontloading_events()) {
+                        var_dump($importer->get_frontloading_events());
                     }
                     break;
             }
@@ -58,6 +60,7 @@ add_action('init', function() {
             break;
         }
     } while ( $importer->advance_to_next_stage() );
+    var_dump($importer->get_next_stage());
 
     die("Done");
     var_dump($importer->get_stage());
