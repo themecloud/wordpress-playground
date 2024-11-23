@@ -207,7 +207,7 @@ class WP_Stream_Importer {
 				$this->next_stage = self::STAGE_IMPORT_ENTITIES;
 				return false;
 			case self::STAGE_IMPORT_ENTITIES:
-				if ( false === $this->import_next_entity() ) {
+				if ( true === $this->import_next_entity() ) {
 					return true;
 				}
 				$this->next_stage = self::STAGE_FINISHED;
@@ -527,7 +527,7 @@ class WP_Stream_Importer {
 		}
 
 		$post_id = $this->importer->import_entity( $entity );
-		if($post_id) {
+		if(false !== $post_id) {
 			$this->count_imported_entity($entity->get_type());
 		} else {
 			// @TODO: Store error.
@@ -535,8 +535,9 @@ class WP_Stream_Importer {
 		foreach ( $attachments as $filepath ) {
 			// @TODO: Monitor failures.
 			$attachment_id = $this->importer->import_attachment( $filepath, $post_id );
-			if($attachment_id) {
-				$this->count_imported_entity('attachment');
+			if(false !== $attachment_id) {
+				// @TODO: How to count attachments?
+				$this->count_imported_entity('post');
 			} else {
 				// @TODO: Store error.
 			}

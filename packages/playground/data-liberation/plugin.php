@@ -61,11 +61,7 @@ add_action('init', function() {
             break;
         }
     } while ( $importer->advance_to_next_stage() );
-    var_dump($importer->get_next_stage());
 
-    die("Done");
-    var_dump($importer->get_stage());
-    var_dump($importer->get_next_stage());
     
     $importer->next_step();
     switch($importer->get_stage()) {
@@ -74,7 +70,6 @@ add_action('init', function() {
             var_dump($importer->get_found_assets_urls());
             break;
     }
-    die();
     while($importer->next_step()) {
         // ...
     }
@@ -154,8 +149,7 @@ function data_liberation_admin_page() {
         <h1>Data Liberation</h1>
     <?php
 
-    $current_import = get_option('data_liberation_active_import');
-    if(isset($_GET['run-step']) && $current_import) {
+    if(isset($_GET['run-step'])) {
         echo '<h2>Next import step stdout output:</h2>';
         echo '<pre>';
         data_liberation_process_import();
@@ -500,6 +494,7 @@ function data_liberation_import_step($session) {
 
     do {
         while($importer->next_step()) {
+            // var_dump("Stage: " . $importer->get_stage());
             switch($importer->get_stage()) {
                 case WP_Stream_Importer::STAGE_INDEX_ENTITIES:
                     // Bump the total number of entities to import.
