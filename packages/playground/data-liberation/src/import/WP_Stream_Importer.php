@@ -49,6 +49,15 @@ class WP_Stream_Importer {
 	const STAGE_IMPORT_ENTITIES  = '#import_entities';
 	const STAGE_FINISHED         = '#finished';
 
+	const STAGES_IN_ORDER = array(
+		self::STAGE_INITIAL,
+		self::STAGE_INDEX_ENTITIES,
+		self::STAGE_TOPOLOGICAL_SORT,
+		self::STAGE_FRONTLOAD_ASSETS,
+		self::STAGE_IMPORT_ENTITIES,
+		self::STAGE_FINISHED,
+	);
+
 	/**
 	 * The current state of the import process.
 	 * @var string
@@ -461,6 +470,8 @@ class WP_Stream_Importer {
 	 *        the API consumer?
 	 */
 	private function import_next_entity() {
+		$this->imported_entities_counts = array();
+
 		if ( null === $this->entity_iterator ) {
 			$this->entity_iterator = $this->create_entity_iterator();
 			$this->importer        = new WP_Entity_Importer();
@@ -515,11 +526,20 @@ class WP_Stream_Importer {
 				break;
 		}
 
-		// @TODO: Monitor failures.
 		$post_id = $this->importer->import_entity( $entity );
+		if($post_id) {
+			$this->count_imported_entity($entity->get_type());
+		} else {
+			// @TODO: Store error.
+		}
 		foreach ( $attachments as $filepath ) {
 			// @TODO: Monitor failures.
-			$this->importer->import_attachment( $filepath, $post_id );
+			$attachment_id = $this->importer->import_attachment( $filepath, $post_id );
+			if($attachment_id) {
+				$this->count_imported_entity('attachment');
+			} else {
+				// @TODO: Store error.
+			}
 		}
 
 		/**
@@ -528,6 +548,17 @@ class WP_Stream_Importer {
 		$this->resume_at_entity = $this->entity_iterator->get_reentrancy_cursor();
 		$this->entity_iterator->next();
 		return true;
+	}
+
+	private $imported_entities_counts = array();
+	private function count_imported_entity($type) {
+		if(!array_key_exists($type, $this->imported_entities_counts)) {
+			$this->imported_entities_counts[$type] = 0;
+		}
+		++$this->imported_entities_counts[$type];
+	}
+	public function get_imported_entities_counts() {
+		return $this->imported_entities_counts;
 	}
 
 	private function enqueue_attachment_download( string $raw_url, $context_path = null ) {
